@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import requests
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 
@@ -106,42 +107,25 @@ Use the inputs provided below to research and summarize the target company, its 
 ---
 """
 
+if "result" not in st.session_state:
+    st.session_state.result = ""
+
 if st.button("Run"):
     with st.spinner("Thinking..."):
-        
-        #st.text(prompt)
-        #st.stop()
-
         completion = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
+            messages=[{"role": "user", "content": prompt}],
         )
+        st.session_state.result = completion.choices[0].message.content
 
-        st.write(completion.choices[0].message.content)
+# Show result if exists
+if st.session_state.result:
+    st.write(st.session_state.result)
 
-
-
-######
-# OpenAI version
-
-# client = OpenAI(
-#     base_url="https://router.huggingface.co/v1",
-#     api_key=os.environ["HF_TOKEN"],
-# )
-
-# completion = client.chat.completions.create(
-#     model="meta-llama/Meta-Llama-3-8B-Instruct:novita",
-#     messages=[
-#         {
-#             "role": "user",
-#             "content": "What is the capital of France?"
-#         }
-#     ],
-# )
-
-# print(completion.choices[0].message)
+    # Download button
+    st.download_button(
+        label="Download Result",
+        data=st.session_state.result,
+        file_name=f"sales_insight_{product_name}.txt",
+        mime="text/plain"
+    )
