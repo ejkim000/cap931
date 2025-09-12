@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import requests
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 
@@ -12,12 +11,13 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 if not HF_TOKEN:
     raise ValueError("HF_TOKEN not found in .env file")
 
+# Set Hugging Face’s inference library
 client = InferenceClient(
     provider="novita",
     api_key=HF_TOKEN,
 )
 
-# set the inputs
+# Set the inputs
 st.title("Sales Assistant")
 
 product_name = st.text_input(
@@ -44,8 +44,7 @@ optional = st.text_input(
     "Optional",
     placeholder="Upload a product overview sheet or deck.")
 
-# st.write("product name", product_name)
-
+# Create a prompt
 prompt = f"""
 Here’s a clean and structured **prompt template** you can use to generate a simple one-pager for sales reps. It’s designed so that the LLM knows exactly what to do with the inputs you provide:
 
@@ -107,22 +106,26 @@ Use the inputs provided below to research and summarize the target company, its 
 ---
 """
 
+# Check the result's session
 if "result" not in st.session_state:
     st.session_state.result = ""
 
+# Create a "Run" button with the "Thinking..." spinner while waiting for the result
 if st.button("Run"):
     with st.spinner("Thinking..."):
+        # Use "meta-llama" LLM to get the result
         completion = client.chat.completions.create(
             model="meta-llama/Meta-Llama-3-8B-Instruct",
             messages=[{"role": "user", "content": prompt}],
         )
+        # Save result to session
         st.session_state.result = completion.choices[0].message.content
 
-# Show result if exists
+# Show result if result's session exists
 if st.session_state.result:
     st.write(st.session_state.result)
 
-    # Download button
+    # Download button : download result to text file
     st.download_button(
         label="Download Result",
         data=st.session_state.result,
