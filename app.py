@@ -40,9 +40,16 @@ target_customer = st.text_input(
     "Target Customer",
     placeholder="Name of the person you are trying to sell to.")
 
-optional = st.text_input(
-    "Optional",
-    placeholder="Upload a product overview sheet or deck.")
+
+# Max file size (2 MB)
+MAX_FILE_SIZE = 2 * 1024 * 1024
+
+# Optional file upload : only txt files are allowed
+optional_file = st.file_uploader(
+    "Optional: Upload a product overview sheet or deck. (Max 2 MB)",
+    type=["txt"],
+    help="Upload a product overview sheet or deck. (Max 2 MB)"
+)
 
 # Create a prompt
 prompt = f"""
@@ -63,7 +70,7 @@ Use the inputs provided below to research and summarize the target company, its 
 3. **Competitors:** {competitors}
 4. **Value Proposition:** {value_proposition}
 5. **Target Customer:** {target_customer}
-6. **Optional Product Overview File:** {optional}
+6. **Optional Product Overview File:** {optional_file}
 
 ---
 
@@ -113,13 +120,40 @@ if "result" not in st.session_state:
 # Create a "Run" button with the "Thinking..." spinner while waiting for the result
 if st.button("Run"):
     with st.spinner("Thinking..."):
-        # Use "meta-llama" LLM to get the result
-        completion = client.chat.completions.create(
-            model="meta-llama/Meta-Llama-3-8B-Instruct",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        # Save result to session
-        st.session_state.result = completion.choices[0].message.content
+        file_content = ""
+
+        if optional_file is not None:
+            if optional_file.size > MAX_FILE_SIZE:
+                st.error("File too large! Please upload a file smaller than 2 MB.")
+            else:
+                raw_bytes = optional_file.read()
+                try:
+                    # Try decoding as UTF-8 (works for txt/markdown/csv)
+                    file_content = raw_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    # For non-text files (pdf/docx/pptx), you’d need parsing libraries
+                    file_content = "[Uploaded file is binary and not directly readable.]"
+
+        # Build final prompt
+        final_prompt = prompt
+        if file_content:
+            final_prompt += f"\n\n---\nFile content:\n{file_content}"
+
+        # Only call LLM if not empty
+        if final_prompt.strip():
+            completion = client.chat.completions.create(
+                model="meta-llama/Meta-Llama-3-8B-Instruct",
+                messages=[{"role": "user", "content": final_prompt}],
+            )
+
+            #st.write(completion.choices[0].message["content"])
+
+            # Save result to session
+            st.session_state.result = completion.choices[0].message.content
+
+        else:
+            st.warning("Please enter a prompt or upload a file before running.")
+
 
 # Show result if result's session exists
 if st.session_state.result:
